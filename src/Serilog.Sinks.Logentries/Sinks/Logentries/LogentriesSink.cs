@@ -1,11 +1,11 @@
 ﻿// Copyright 2014 Serilog Contributors
-// 
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-// 
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
-// 
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -35,7 +35,7 @@ namespace Serilog.Sinks.Logentries
         private readonly string _url;
         LeClient _client;
         readonly ITextFormatter _textFormatter;
-        
+
         /// <summary>
         /// UTF-8 output character set.
         /// </summary>
@@ -52,19 +52,23 @@ namespace Serilog.Sinks.Logentries
         /// </summary>
         public static readonly TimeSpan DefaultPeriod = TimeSpan.FromSeconds(2);
 
+        private readonly string _region;
+
         /// <summary>
         /// Construct a sink that sends logs to the specified Logentries log using a <see cref="MessageTemplateTextFormatter"/> to format
         /// the logs as simple display messages.
         /// </summary>
-        /// <param name="batchPostingLimit">The maximum number of events to post in a single batch.</param>
-        /// <param name="period">The time to wait between checking for event batches.</param>
         /// <param name="outputTemplate">A message template describing the format used to write to the sink.</param>
         /// <param name="formatProvider">Supplies culture-specific formatting information, or null.</param>
         /// <param name="token">The input key as found on the Logentries website.</param>
         /// <param name="useSsl">Indicates if you want to use SSL or not.</param>
+        /// <param name="region">Region option, e.g: us, eu.</param>
+        /// <param name="batchPostingLimit">The maximum number of events to post in a single batch.</param>
+        /// <param name="period">The time to wait between checking for event batches.</param>
         /// <param name="url">Url to logentries</param>
-        public LogentriesSink(string outputTemplate, IFormatProvider formatProvider, string token, bool useSsl, int batchPostingLimit, TimeSpan period, string url)
-            : this(new MessageTemplateTextFormatter(outputTemplate, formatProvider), token, useSsl, batchPostingLimit, period, url)
+        public LogentriesSink(string outputTemplate, IFormatProvider formatProvider, string token, bool useSsl,
+            string region, int batchPostingLimit, TimeSpan period, string url)
+            : this(new MessageTemplateTextFormatter(outputTemplate, formatProvider), token, useSsl, region, batchPostingLimit, period, url)
         {
         }
 
@@ -74,14 +78,18 @@ namespace Serilog.Sinks.Logentries
         /// <param name="textFormatter">Used to format the logs sent to Logentries.</param>
         /// <param name="token">The input key as found on the Logentries website.</param>
         /// <param name="useSsl">Indicates if you want to use SSL or not.</param>
+        /// <param name="region">Region option, e.g: us, eu.</param>
         /// <param name="batchPostingLimit">The maximum number of events to post in a single batch.</param>
         /// <param name="period">The time to wait between checking for event batches.</param>
-        public LogentriesSink(ITextFormatter textFormatter, string token, bool useSsl, int batchPostingLimit, TimeSpan period, string url)
+        /// <param name="url"></param>
+        public LogentriesSink(ITextFormatter textFormatter, string token, bool useSsl, string region,
+            int batchPostingLimit, TimeSpan period, string url)
              : base(batchPostingLimit, period)
         {
             _textFormatter = textFormatter ?? throw new ArgumentNullException(nameof(textFormatter));
             _token = token;
             _useSsl = useSsl;
+            _region = region;
             _url = url;
         }
 
@@ -95,15 +103,18 @@ namespace Serilog.Sinks.Logentries
         /// </remarks>
         protected override async Task EmitBatchAsync(IEnumerable<LogEvent> events)
         {
-            if (events.Any() == false)
+            var logEvents = events.ToList();
+            if (!logEvents.Any())
                 await Task.FromResult(0);
 
             if (_client == null)
-                _client = new LeClient(false, _useSsl, _url);
+            {
+                _client = new LeClient(_useSsl, _url);
+            }
 
-            await _client.ConnectAsync().ConfigureAwait(false);
+            await _client.ConnectAsync();
 
-            foreach (var logEvent in events)
+            foreach (var logEvent in logEvents)
             {
                 var renderSpace = new StringWriter();
                 _textFormatter.Format(logEvent, renderSpace);
@@ -113,16 +124,18 @@ namespace Serilog.Sinks.Logentries
                 // LogEntries uses a NewLine character to determine the end of a log message
                 // this causes problems with stack traces.
                 if (!string.IsNullOrEmpty(renderedString))
+                {
                     renderedString = renderedString.Replace("\n", "");
+                }
 
                 var finalLine = _token + renderedString + '\n';
 
                 var data = Utf8.GetBytes(finalLine);
 
-                await _client.WriteAsync(data, 0, data.Length).ConfigureAwait(false);
+                await _client.WriteAsync(data, 0, data.Length);
             }
 
-            await _client.FlushAsync().ConfigureAwait(false);
+            await _client.FlushAsync();
             _client.Close();
         }
 

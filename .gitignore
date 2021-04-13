@@ -234,3 +234,4 @@ _Pvt_Extensions
 
 # FAKE - F# Make
 .fake/
+/test/Serilog.Sinks.Logentries.Tests/Properties/launchSettings.json
