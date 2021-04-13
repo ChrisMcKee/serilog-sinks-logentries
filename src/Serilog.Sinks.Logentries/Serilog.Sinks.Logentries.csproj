@@ -1,10 +1,10 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
         <Description>Serilog event sink that writes to the Logentries.com service.</Description>
         <VersionPrefix>4.1.0</VersionPrefix>
         <Authors>Serilog Contributors;Michiel van Oudheusden</Authors>
-        <TargetFrameworks>netstandard2.0;netstandard2.1;net452;net462;net50</TargetFrameworks>
+        <TargetFrameworks>netstandard2.0;netstandard2.1;net462;net50</TargetFrameworks>
         <AssemblyName>Serilog.Sinks.Logentries</AssemblyName>
         <!-- <AssemblyOriginatorKeyFile>../../assets/Serilog.snk</AssemblyOriginatorKeyFile>
     <SignAssembly>true</SignAssembly> -->
@@ -19,10 +19,17 @@
         <RepositoryType>git</RepositoryType>
     </PropertyGroup>
 
+    <PropertyGroup Condition="'$(TargetFramework)' == 'netstandard2.1'
+                        or '$(TargetFramework)' == 'netstandard2.0'
+                        or '$(TargetFramework)' == 'net48'
+                        or '$(TargetFramework)' == 'net50'
+                        ">
+        <DefineConstants>$(DefineConstants);HAS_OSPLAT</DefineConstants>
+    </PropertyGroup>
+
     <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.1'
                         or '$(TargetFramework)' == 'netstandard2.0'
                         or '$(TargetFramework)' == 'net462'
-                        or '$(TargetFramework)' == 'net472'
                         or '$(TargetFramework)' == 'net48'
                         or '$(TargetFramework)' == 'net50'
                         ">

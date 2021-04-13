@@ -16,12 +16,14 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Sockets;
 using System.Text;
 using Serilog.Events;
 using Serilog.Formatting;
 using Serilog.Formatting.Display;
 using Serilog.Sinks.PeriodicBatching;
 using System.Threading.Tasks;
+using Serilog.Debugging;
 
 namespace Serilog.Sinks.Logentries
 {
@@ -103,40 +105,36 @@ namespace Serilog.Sinks.Logentries
         /// </remarks>
         protected override async Task EmitBatchAsync(IEnumerable<LogEvent> events)
         {
-            var logEvents = events.ToList();
-            if (!logEvents.Any())
-                await Task.FromResult(0);
 
             if (_client == null)
             {
                 _client = new LeClient(_useSsl, _url);
             }
 
-            await _client.ConnectAsync();
+            // Throws if not connected and unable to connect (PeriodicBatchingSink will handle retries)
+            await _client.EnsureConnected();
 
-            foreach (var logEvent in logEvents)
+            foreach (var logEvent in events)
             {
-                var renderSpace = new StringWriter();
-                _textFormatter.Format(logEvent, renderSpace);
 
-                var renderedString = renderSpace.ToString();
+                var sw = new StringWriter();
+                _textFormatter.Format(logEvent, sw);
 
-                // LogEntries uses a NewLine character to determine the end of a log message
-                // this causes problems with stack traces.
-                if (!string.IsNullOrEmpty(renderedString))
+                var renderedString = sw.ToString();
+
+                try
                 {
-                    renderedString = renderedString.Replace("\n", "");
+                    await _client.WriteAsync(_token, renderedString);
                 }
-
-                var finalLine = _token + renderedString + '\n';
-
-                var data = Utf8.GetBytes(finalLine);
-
-                await _client.WriteAsync(data, 0, data.Length);
+                catch (SocketException ex)
+                {
+                    // Log and rethrow (PeriodicBatchingSink will handle retries)
+                    SelfLog.WriteLine($"[{nameof(LogentriesSink)}] error while sending log event to syslog {this._url}:{(this._useSsl ? "443" : "80")} - {ex.Message}\n{ex.StackTrace}");
+                    throw;
+                }
             }
 
             await _client.FlushAsync();
-            _client.Close();
         }
 
         /// <summary>
