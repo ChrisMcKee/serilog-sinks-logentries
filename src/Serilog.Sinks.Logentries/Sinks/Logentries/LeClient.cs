@@ -136,13 +136,14 @@ namespace Serilog.Sinks.Logentries
                 ////// Recreate the TCP client
                 //ActiveStream?.Dispose();
                 //TcpClient?.Close();
+
                 _tcpClient = new TcpClient();
 
                 _tcpClient.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
 
                 // Reduce latency to a minimum
                 _tcpClient.NoDelay = true;
-                TcpClient.ConnectAsync(_url, _tcpPort).Wait();
+                await TcpClient.ConnectAsync(_url, _tcpPort).ConfigureAwait(true);
 
                 try
                 {
@@ -153,7 +154,7 @@ namespace Serilog.Sinks.Logentries
                     // .net core on linux does not support modification of that settings at the moment. defaults applied.
                 }
 
-                ActiveStream = GetStream(TcpClient.GetStream()).Result;
+                ActiveStream = await GetStream(TcpClient.GetStream()).ConfigureAwait(true);
             }
             catch (Exception ex)
             {

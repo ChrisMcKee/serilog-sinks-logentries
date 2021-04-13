@@ -1,9 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Net;
+using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Serilog.Core;
+using Serilog;
 using Xunit;
 
 namespace Serilog.Sinks.Logentries.Tests
@@ -11,6 +14,7 @@ namespace Serilog.Sinks.Logentries.Tests
     public class BasicLETest
     {
         private string _token = Environment.GetEnvironmentVariable("Token");
+
 
         [Fact]
         public void Test()
@@ -20,7 +24,7 @@ namespace Serilog.Sinks.Logentries.Tests
 
             using (var log = new LoggerConfiguration()
                 .MinimumLevel.Verbose()
-                .WriteTo.Logentries(_token, region: "eu", batchPostingLimit: 50, period: TimeSpan.FromMilliseconds(100))
+                .WriteTo.Logentries(_token, region: "eu", batchPostingLimit: 50, period: TimeSpan.FromMilliseconds(500))
                 .CreateLogger())
             {
                 for (var j = 0; j < 5; j++)
